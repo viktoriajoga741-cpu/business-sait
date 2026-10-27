@@ -34,15 +34,27 @@
 const $=id=>document.getElementById(id);
 $('reference').addEventListener('change',e=>{$('refLabel').textContent=e.target.files[0]?.name||'Загрузить видео-пример';});
 $('product').addEventListener('change',e=>{$('productLabel').textContent=e.target.files.length?Array.from(e.target.files).map(f=>f.name).join(', '):'Загрузить продукт';});
-$('generate').addEventListener('click',()=>{
- const brand=$('brandName').value.trim()||'Ваш бренд', info=$('productInfo').value.trim()||'продукт с преимуществами для вашей аудитории', style=$('style').value;
- const hasFiles=$('reference').files.length||$('product').files.length;
- $('previewTitle').textContent=brand+' — покажите главное';
- $('previewText').textContent=style+' · '+$('platform').value;
- $('storyboard').value='СЦЕНА 1 · 0–2 сек\nСильный визуальный хук: крупный план продукта и короткий заголовок.\n\nСЦЕНА 2 · 2–6 сек\nПоказ продукта в действии; быстрые переходы в ритм музыки.\n\nСЦЕНА 3 · 6–10 сек\nГлавное преимущество: '+info+'.\n\nСЦЕНА 4 · 10–13 сек\nФинальный кадр с брендом '+brand+' и призывом к действию.';
- $('caption').value=brand+': '+info+'. Смотрите, выбирайте и напишите нам, чтобы узнать больше.';
- $('hashtags').textContent='#'+brand.replace(/[^\p{L}\p{N}]/gu,'')+' #реклама #reels #новинка #вашбренд';
- $('status').textContent=hasFiles?'Материалы выбраны. Сформирована демо-концепция; автоматический анализ файлов ещё не подключён.':'Демо-концепция готова. Загрузите свои материалы для следующего шага.';
+$('generate').addEventListener('click',async()=>{
+ const brand=$('brandName').value.trim()||'Ваш бренд', info=$('productInfo').value.trim()||'продукт с преимуществами для вашей аудитории', style=$('style').value, platform=$('platform').value;
+ const button=$('generate'); button.disabled=true; $('status').textContent='Пробую подключить ИИ…';
+ try {
+  const response=await fetch('/api/generate-creative',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({brand,productInfo:info,style,platform})});
+  const data=await response.json();
+  if(!response.ok) throw new Error(data.error||'ИИ пока недоступен');
+  $('previewTitle').textContent=data.title||brand+' — рекламная идея';
+  $('previewText').textContent=style+' · '+platform;
+  $('storyboard').value=(data.scenes||[]).map((scene,i)=>'СЦЕНА '+(i+1)+' · '+scene).join('\n\n');
+  $('caption').value=data.caption||'';
+  $('hashtags').textContent=(data.hashtags||[]).map(tag=>tag.startsWith('#')?tag:'#'+tag).join(' ');
+  $('status').textContent='Концепция создана настоящим ИИ. Готовый MP4 пока не рендерится.';
+ } catch(error) {
+  $('status').textContent=error.message+' Показан демо-вариант.';
+  $('previewTitle').textContent=brand+' — покажите главное';
+  $('previewText').textContent=style+' · '+platform;
+  $('storyboard').value='СЦЕНА 1 · 0–2 сек\nСильный визуальный хук: крупный план продукта и короткий заголовок.\n\nСЦЕНА 2 · 2–6 сек\nПоказ продукта в действии; быстрые переходы в ритм музыки.\n\nСЦЕНА 3 · 6–10 сек\nГлавное преимущество: '+info+'.\n\nСЦЕНА 4 · 10–13 сек\nФинальный кадр с брендом '+brand+' и призывом к действию.';
+  $('caption').value=brand+': '+info+'. Смотрите, выбирайте и напишите нам, чтобы узнать больше.';
+  $('hashtags').textContent='#'+brand.replace(/[^\p{L}\p{N}]/gu,'')+' #реклама #reels #новинка #вашбренд';
+ } finally {button.disabled=false;}
 });
 $('reset').addEventListener('click',()=>{['reference','product'].forEach(id=>$(id).value='');['brandName','productInfo','caption','storyboard'].forEach(id=>$(id).value='');$('refLabel').textContent='Загрузить видео-пример';$('productLabel').textContent='Загрузить продукт';$('previewTitle').textContent='Ваша следующая реклама начинается здесь';$('previewText').textContent='Загрузите материалы и нажмите «Подготовить концепцию».';$('hashtags').textContent='';$('status').textContent='Поля очищены.';});
 </script></body></html>
